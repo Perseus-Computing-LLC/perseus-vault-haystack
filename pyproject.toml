@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mimir-haystack"
+version = "0.1.0"
+description = "Local-first, encrypted persistent memory for Haystack 2.x pipelines — backed by Mimir."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Perseus Computing LLC", email = "hermes@perseus.observer" },
+]
+keywords = ["haystack", "mimir", "memory", "rag", "mcp", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "haystack-ai>=2.0.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/Perseus-Computing-LLC/mimir-haystack"
+Repository = "https://github.com/Perseus-Computing-LLC/mimir-haystack"
+"Bug Tracker" = "https://github.com/Perseus-Computing-LLC/mimir-haystack/issues"
+Mimir = "https://github.com/Perseus-Computing-LLC/mimir"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mimir_haystack"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
