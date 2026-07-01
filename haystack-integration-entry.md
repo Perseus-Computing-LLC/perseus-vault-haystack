@@ -26,11 +26,11 @@ toc: true
 
 ## Overview
 
-[Mimir](https://github.com/Perseus-Computing-LLC/mimir) is an open-source (MIT), local-first, encrypted persistent memory engine with 40+ tools exposed over the Model Context Protocol (MCP). It runs entirely on your machine and stores data in an encrypted SQLite database — no external vector database or API key required.
+[Mneme](https://github.com/Perseus-Computing-LLC/mneme) is an open-source (MIT), local-first, encrypted persistent memory engine with 40+ tools exposed over the Model Context Protocol (MCP). It runs entirely on your machine and stores data in an encrypted SQLite database — no external vector database or API key required.
 
 The `mimir-haystack` package provides:
 
-- `MimirMemoryStore`: A persistent memory store backed by a local Mimir engine.
+- `MimirMemoryStore`: A persistent memory store backed by a local Mneme engine.
 - `MimirMemoryWriter`: A component that persists `Document`s into the store.
 - `MimirMemoryRetriever`: A component that retrieves the most relevant `Document`s for a query.
 
@@ -40,7 +40,7 @@ The `mimir-haystack` package provides:
 pip install mimir-haystack
 ```
 
-You also need the `mimir` binary on your `$PATH` (download from the [Mimir releases page](https://github.com/Perseus-Computing-LLC/mimir/releases)).
+You also need the `mimir` binary on your `$PATH` (download from the [Mneme releases page](https://github.com/Perseus-Computing-LLC/mneme/releases)).
 
 ## Usage
 
@@ -60,11 +60,11 @@ store = MimirMemoryStore(db_path="~/.mimir/haystack.db", category="docs")
 
 write_pipe = Pipeline()
 write_pipe.add_component("writer", MimirMemoryWriter(memory_store=store))
-write_pipe.run({"writer": {"documents": [Document(content="Mimir is local-first.")]}})
+write_pipe.run({"writer": {"documents": [Document(content="Mneme is local-first.")]}})
 
 read_pipe = Pipeline()
 read_pipe.add_component("retriever", MimirMemoryRetriever(memory_store=store, top_k=3))
-result = read_pipe.run({"retriever": {"query": "What is Mimir?"}})
+result = read_pipe.run({"retriever": {"query": "What is Mneme?"}})
 print(result["retriever"]["documents"])
 ```
 
