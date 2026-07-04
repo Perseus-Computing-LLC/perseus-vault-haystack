@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Mimir-backed memory store for Haystack 2.x."""
+"""Perseus Vault-backed memory store for Haystack 2.x."""
 
 from __future__ import annotations
 
@@ -14,27 +14,28 @@ from typing import Any
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import Document
 
-from ._client import MimirClient
+from ._client import PerseusVaultClient
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CATEGORY = "haystack-memory"
 
 
-class MimirMemoryStore:
-    """Persistent memory backend backed by the Mimir engine.
+class PerseusVaultMemoryStore:
+    """Persistent memory backend backed by the Perseus Vault engine.
 
-    Wraps the Mimir MCP tools ``mimir_remember`` (write), ``mimir_recall``
-    (search) and ``mimir_forget`` (delete). Each Haystack ``Document`` is stored
-    as one Mimir entity; the document's ``content`` becomes the entity body and
-    its ``meta`` is preserved as JSON. On recall, entities are rehydrated back
-    into ``Document`` objects with their original ``id``, ``content``, ``meta``
-    and a relevance ``score`` from Mimir.
+    Wraps the Perseus Vault MCP tools ``mimir_remember`` (write),
+    ``mimir_recall`` (search) and ``mimir_forget`` (delete). Each Haystack
+    ``Document`` is stored as one Perseus Vault entity; the document's
+    ``content`` becomes the entity body and its ``meta`` is preserved as JSON. On
+    recall, entities are rehydrated back into ``Document`` objects with their
+    original ``id``, ``content``, ``meta`` and a relevance ``score`` from Perseus
+    Vault.
 
     The store owns the long-lived ``mimir`` subprocess; the thin
-    :class:`~mimir_haystack.MimirMemoryWriter` and
-    :class:`~mimir_haystack.MimirMemoryRetriever` components delegate to it so a
-    single store can back several pipeline components.
+    :class:`~perseus_vault_haystack.PerseusVaultMemoryWriter` and
+    :class:`~perseus_vault_haystack.PerseusVaultMemoryRetriever` components
+    delegate to it so a single store can back several pipeline components.
 
     This class is safe to use across threads (the underlying client is
     thread-safe).
@@ -50,14 +51,15 @@ class MimirMemoryStore:
     ) -> None:
         """Initialize the store.
 
-        :param db_path: Path to the Mimir SQLite database file.
+        :param db_path: Path to the Perseus Vault SQLite database file.
         :param mimir_binary: Name (on ``$PATH``) or absolute path of the
             ``mimir`` executable.
-        :param category: Mimir category that scopes every write and recall for
-            this store. Use distinct categories to isolate corpora.
+        :param category: Perseus Vault category that scopes every write and
+            recall for this store. Use distinct categories to isolate corpora.
         :param top_k: Default maximum number of documents returned by
             :meth:`search_memories`.
-        :param timeout_s: Per-RPC timeout for the underlying Mimir subprocess.
+        :param timeout_s: Per-RPC timeout for the underlying Perseus Vault
+            subprocess.
         """
         self.db_path = db_path
         self.mimir_binary = mimir_binary
@@ -65,7 +67,7 @@ class MimirMemoryStore:
         self.top_k = top_k
         self.timeout_s = timeout_s
 
-        self._client = MimirClient(
+        self._client = PerseusVaultClient(
             db_path=db_path,
             mimir_binary=mimir_binary,
             timeout_s=timeout_s,
@@ -75,11 +77,11 @@ class MimirMemoryStore:
     # Write
     # ------------------------------------------------------------------ #
     def add_memories(self, documents: list[Document]) -> int:
-        """Persist ``documents`` into Mimir via ``mimir_remember``.
+        """Persist ``documents`` into Perseus Vault via ``mimir_remember``.
 
         Documents with empty ``content`` are skipped. The document ``id`` is used
-        as the Mimir entity key so re-writing the same document updates it in
-        place (idempotent upsert).
+        as the Perseus Vault entity key so re-writing the same document updates it
+        in place (idempotent upsert).
 
         :param documents: Documents to store.
         :returns: The number of documents actually written.
@@ -105,20 +107,21 @@ class MimirMemoryStore:
                 },
             )
             written += 1
-        logger.info("Stored %d documents in Mimir category '%s'", written, self.category)
+        logger.info("Stored %d documents in Perseus Vault category '%s'", written, self.category)
         return written
 
     # ------------------------------------------------------------------ #
     # Search
     # ------------------------------------------------------------------ #
     def search_memories(self, query: str, top_k: int | None = None) -> list[Document]:
-        """Search Mimir via ``mimir_recall`` and return matching documents.
+        """Search Perseus Vault via ``mimir_recall`` and return matching documents.
 
         :param query: Natural-language / keyword query. Empty queries return
             ``[]``.
         :param top_k: Per-call override of the store's default ``top_k``.
         :returns: A list of :class:`~haystack.dataclasses.Document`, ordered by
-            Mimir relevance, each carrying a ``score`` when Mimir provides one.
+            Perseus Vault relevance, each carrying a ``score`` when Perseus Vault
+            provides one.
         """
         if not query:
             return []
@@ -140,9 +143,9 @@ class MimirMemoryStore:
             content = body_data.get("content") or item.get("content")
             if not content:
                 continue
-            # Mimir's recall ranks by relevance but names the field differently
-            # across versions: prefer an explicit ``score``, else fall back to
-            # ``certainty`` (relevance/confidence in v2.x).
+            # Perseus Vault's recall ranks by relevance but names the field
+            # differently across versions: prefer an explicit ``score``, else fall
+            # back to ``certainty`` (relevance/confidence in v2.x).
             score = item.get("score")
             if score is None:
                 score = item.get("certainty")
@@ -163,7 +166,7 @@ class MimirMemoryStore:
     def delete_all_memories(self) -> None:
         """Delete every entity in this store's category via ``mimir_forget``."""
         self._client.call_tool("mimir_forget", {"category": self.category})
-        logger.info("Deleted all documents in Mimir category '%s'", self.category)
+        logger.info("Deleted all documents in Perseus Vault category '%s'", self.category)
 
     # ------------------------------------------------------------------ #
     # Serialization
@@ -180,6 +183,6 @@ class MimirMemoryStore:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MimirMemoryStore:
+    def from_dict(cls, data: dict[str, Any]) -> PerseusVaultMemoryStore:
         """Deserialize a store from a dict produced by :meth:`to_dict`."""
         return default_from_dict(cls, data)

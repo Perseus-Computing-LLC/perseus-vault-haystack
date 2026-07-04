@@ -1,4 +1,4 @@
-# mimir-haystack
+# perseus-vault-haystack
 
 Local-first, encrypted **persistent memory for [Haystack](https://haystack.deepset.ai/) 2.x pipelines**, backed by [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) (formerly "Mimir"/"Mneme").
 
@@ -8,9 +8,9 @@ Perseus Vault is an open-source (MIT) memory engine that runs entirely on your m
 
 | Class | Type | Role |
 | --- | --- | --- |
-| `MimirMemoryStore` | Memory store | Owns the `mimir` subprocess and config; holds `add_memories` / `search_memories` / `delete_all_memories`. |
-| `MimirMemoryWriter` | `@component` | Pipeline sink that persists `Document`s into the store. |
-| `MimirMemoryRetriever` | `@component` | Pipeline source that retrieves the most relevant `Document`s for a query. |
+| `PerseusVaultMemoryStore` | Memory store | Owns the `mimir` subprocess and config; holds `add_memories` / `search_memories` / `delete_all_memories`. |
+| `PerseusVaultMemoryWriter` | `@component` | Pipeline sink that persists `Document`s into the store. |
+| `PerseusVaultMemoryRetriever` | `@component` | Pipeline source that retrieves the most relevant `Document`s for a query. |
 
 ## Prerequisite: the `mimir` binary
 
@@ -28,7 +28,7 @@ mimir --version
 ## Install
 
 ```bash
-pip install mimir-haystack
+pip install perseus-vault-haystack
 ```
 
 This pulls in `haystack-ai`. The `mimir` binary is a separate, language-agnostic dependency (see above).
@@ -37,14 +37,18 @@ This pulls in `haystack-ai`. The `mimir` binary is a separate, language-agnostic
 
 ```python
 from haystack import Pipeline, Document
-from mimir_haystack import MimirMemoryStore, MimirMemoryWriter, MimirMemoryRetriever
+from perseus_vault_haystack import (
+    PerseusVaultMemoryStore,
+    PerseusVaultMemoryWriter,
+    PerseusVaultMemoryRetriever,
+)
 
 # One store, shared by both components (single mimir subprocess).
-store = MimirMemoryStore(db_path="~/.mimir/haystack.db", category="docs")
+store = PerseusVaultMemoryStore(db_path="~/.mimir/haystack.db", category="docs")
 
 # --- Write documents into persistent memory ---
 write_pipe = Pipeline()
-write_pipe.add_component("writer", MimirMemoryWriter(memory_store=store))
+write_pipe.add_component("writer", PerseusVaultMemoryWriter(memory_store=store))
 write_pipe.run(
     {
         "writer": {
@@ -58,7 +62,7 @@ write_pipe.run(
 
 # --- Retrieve them later (even in a separate process / run) ---
 read_pipe = Pipeline()
-read_pipe.add_component("retriever", MimirMemoryRetriever(memory_store=store, top_k=3))
+read_pipe.add_component("retriever", PerseusVaultMemoryRetriever(memory_store=store, top_k=3))
 result = read_pipe.run({"retriever": {"query": "What is Perseus Vault?"}})
 
 for doc in result["retriever"]["documents"]:
@@ -71,16 +75,16 @@ Because Perseus Vault persists to an encrypted SQLite file, documents written in
 
 ```python
 from haystack import Document
-from mimir_haystack import MimirMemoryStore
+from perseus_vault_haystack import PerseusVaultMemoryStore
 
-store = MimirMemoryStore(db_path="~/.mimir/haystack.db")
+store = PerseusVaultMemoryStore(db_path="~/.mimir/haystack.db")
 store.add_memories([Document(content="Remember this fact.")])
 hits = store.search_memories("fact", top_k=5)
 ```
 
 ## Configuration
 
-`MimirMemoryStore` accepts:
+`PerseusVaultMemoryStore` accepts:
 
 - `db_path` — path to the Perseus Vault SQLite database (default `~/.mimir/haystack.db`).
 - `mimir_binary` — name on `$PATH` or absolute path to the executable (default `mimir`).
