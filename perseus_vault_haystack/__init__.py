@@ -10,8 +10,8 @@ tools. This package exposes Perseus Vault to Haystack 2.x pipelines as a memory
 store plus two ``@component`` adapters.
 
 Requirements:
-    A ``mimir`` binary must be on ``$PATH`` or passed explicitly via
-    ``mimir_binary``. Download from:
+    A ``perseus-vault`` binary must be on ``$PATH`` or passed explicitly via
+    ``perseus_vault_binary``. Download from:
     https://github.com/Perseus-Computing-LLC/perseus-vault/releases
 """
 

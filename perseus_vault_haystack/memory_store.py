@@ -24,15 +24,15 @@ _DEFAULT_CATEGORY = "haystack-memory"
 class PerseusVaultMemoryStore:
     """Persistent memory backend backed by the Perseus Vault engine.
 
-    Wraps the Perseus Vault MCP tools ``mimir_remember`` (write),
-    ``mimir_recall`` (search) and ``mimir_forget`` (delete). Each Haystack
-    ``Document`` is stored as one Perseus Vault entity; the document's
+    Wraps the Perseus Vault MCP tools ``perseus_vault_remember`` (write),
+    ``perseus_vault_recall`` (search) and ``perseus_vault_forget`` (delete). Each
+    Haystack ``Document`` is stored as one Perseus Vault entity; the document's
     ``content`` becomes the entity body and its ``meta`` is preserved as JSON. On
     recall, entities are rehydrated back into ``Document`` objects with their
     original ``id``, ``content``, ``meta`` and a relevance ``score`` from Perseus
     Vault.
 
-    The store owns the long-lived ``mimir`` subprocess; the thin
+    The store owns the long-lived ``perseus-vault`` subprocess; the thin
     :class:`~perseus_vault_haystack.PerseusVaultMemoryWriter` and
     :class:`~perseus_vault_haystack.PerseusVaultMemoryRetriever` components
     delegate to it so a single store can back several pipeline components.
@@ -44,7 +44,7 @@ class PerseusVaultMemoryStore:
     def __init__(
         self,
         db_path: str = "~/.mimir/haystack.db",
-        mimir_binary: str = "mimir",
+        perseus_vault_binary: str = "perseus-vault",
         category: str = _DEFAULT_CATEGORY,
         top_k: int = 10,
         timeout_s: float = 30.0,
@@ -52,8 +52,8 @@ class PerseusVaultMemoryStore:
         """Initialize the store.
 
         :param db_path: Path to the Perseus Vault SQLite database file.
-        :param mimir_binary: Name (on ``$PATH``) or absolute path of the
-            ``mimir`` executable.
+        :param perseus_vault_binary: Name (on ``$PATH``) or absolute path of the
+            ``perseus-vault`` executable.
         :param category: Perseus Vault category that scopes every write and
             recall for this store. Use distinct categories to isolate corpora.
         :param top_k: Default maximum number of documents returned by
@@ -62,14 +62,14 @@ class PerseusVaultMemoryStore:
             subprocess.
         """
         self.db_path = db_path
-        self.mimir_binary = mimir_binary
+        self.perseus_vault_binary = perseus_vault_binary
         self.category = category
         self.top_k = top_k
         self.timeout_s = timeout_s
 
         self._client = PerseusVaultClient(
             db_path=db_path,
-            mimir_binary=mimir_binary,
+            perseus_vault_binary=perseus_vault_binary,
             timeout_s=timeout_s,
         )
 
@@ -77,7 +77,7 @@ class PerseusVaultMemoryStore:
     # Write
     # ------------------------------------------------------------------ #
     def add_memories(self, documents: list[Document]) -> int:
-        """Persist ``documents`` into Perseus Vault via ``mimir_remember``.
+        """Persist ``documents`` into Perseus Vault via ``perseus_vault_remember``.
 
         Documents with empty ``content`` are skipped. The document ``id`` is used
         as the Perseus Vault entity key so re-writing the same document updates it
@@ -92,7 +92,7 @@ class PerseusVaultMemoryStore:
                 continue
             key = doc.id or f"doc:{int(time.time() * 1_000_000)}:{written}"
             self._client.call_tool(
-                "mimir_remember",
+                "perseus_vault_remember",
                 {
                     "category": self.category,
                     "key": key,
@@ -114,7 +114,7 @@ class PerseusVaultMemoryStore:
     # Search
     # ------------------------------------------------------------------ #
     def search_memories(self, query: str, top_k: int | None = None) -> list[Document]:
-        """Search Perseus Vault via ``mimir_recall`` and return matching documents.
+        """Search Perseus Vault via ``perseus_vault_recall`` and return matching documents.
 
         :param query: Natural-language / keyword query. Empty queries return
             ``[]``.
@@ -127,7 +127,7 @@ class PerseusVaultMemoryStore:
             return []
         limit = top_k if top_k is not None else self.top_k
         result = self._client.call_tool(
-            "mimir_recall",
+            "perseus_vault_recall",
             {"query": query, "limit": limit, "category": self.category},
         )
         items = result.get("items", []) or result.get("results", [])
@@ -164,8 +164,8 @@ class PerseusVaultMemoryStore:
     # Delete
     # ------------------------------------------------------------------ #
     def delete_all_memories(self) -> None:
-        """Delete every entity in this store's category via ``mimir_forget``."""
-        self._client.call_tool("mimir_forget", {"category": self.category})
+        """Delete every entity in this store's category via ``perseus_vault_forget``."""
+        self._client.call_tool("perseus_vault_forget", {"category": self.category})
         logger.info("Deleted all documents in Perseus Vault category '%s'", self.category)
 
     # ------------------------------------------------------------------ #
@@ -176,7 +176,7 @@ class PerseusVaultMemoryStore:
         return default_to_dict(
             self,
             db_path=self.db_path,
-            mimir_binary=self.mimir_binary,
+            perseus_vault_binary=self.perseus_vault_binary,
             category=self.category,
             top_k=self.top_k,
             timeout_s=self.timeout_s,

@@ -40,13 +40,13 @@ The `perseus-vault-haystack` package provides:
 pip install perseus-vault-haystack
 ```
 
-You also need the `mimir` binary on your `$PATH` (download from the [Perseus Vault releases page](https://github.com/Perseus-Computing-LLC/perseus-vault/releases)).
+You also need the `perseus-vault` binary on your `$PATH` (download from the [Perseus Vault releases page](https://github.com/Perseus-Computing-LLC/perseus-vault/releases)).
 
 ## Usage
 
 ### Available Classes
 
-- `PerseusVaultMemoryStore` — owns the `mimir` subprocess and configuration.
+- `PerseusVaultMemoryStore` — owns the `perseus-vault` subprocess and configuration.
 - `PerseusVaultMemoryWriter` — pipeline sink that writes documents to memory.
 - `PerseusVaultMemoryRetriever` — pipeline source that recalls documents by query.
 
