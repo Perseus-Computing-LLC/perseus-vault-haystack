@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Haystack 2.x components wrapping the Mimir memory store."""
+"""Haystack 2.x components wrapping the Perseus Vault memory store."""
 
 from __future__ import annotations
 
@@ -11,39 +11,39 @@ from typing import Any
 from haystack import component, default_from_dict, default_to_dict
 from haystack.dataclasses import Document
 
-from .memory_store import MimirMemoryStore
+from .memory_store import PerseusVaultMemoryStore
 
 
 @component
-class MimirMemoryWriter:
-    """Haystack component that persists ``Document``s into a ``MimirMemoryStore``.
+class PerseusVaultMemoryWriter:
+    """Haystack component that persists ``Document``s into a ``PerseusVaultMemoryStore``.
 
-    Slots into a pipeline as a sink: it writes the incoming documents to Mimir
-    and passes them through unchanged (plus a count), so it can also sit
+    Slots into a pipeline as a sink: it writes the incoming documents to Perseus
+    Vault and passes them through unchanged (plus a count), so it can also sit
     mid-pipeline.
 
     Usage::
 
-        from mimir_haystack import MimirMemoryStore, MimirMemoryWriter
+        from perseus_vault_haystack import PerseusVaultMemoryStore, PerseusVaultMemoryWriter
 
-        store = MimirMemoryStore(db_path="~/.mimir/haystack.db")
-        writer = MimirMemoryWriter(memory_store=store)
-        writer.run(documents=[Document(content="Mimir is local-first.")])
+        store = PerseusVaultMemoryStore(db_path="~/.mimir/haystack.db")
+        writer = PerseusVaultMemoryWriter(memory_store=store)
+        writer.run(documents=[Document(content="Perseus Vault is local-first.")])
     """
 
-    def __init__(self, *, memory_store: MimirMemoryStore) -> None:
+    def __init__(self, *, memory_store: PerseusVaultMemoryStore) -> None:
         """Initialize the writer.
 
-        :param memory_store: Backing :class:`MimirMemoryStore` to write into.
+        :param memory_store: Backing :class:`PerseusVaultMemoryStore` to write into.
         """
-        if not isinstance(memory_store, MimirMemoryStore):
-            msg = "memory_store must be an instance of MimirMemoryStore"
+        if not isinstance(memory_store, PerseusVaultMemoryStore):
+            msg = "memory_store must be an instance of PerseusVaultMemoryStore"
             raise ValueError(msg)
         self._memory_store = memory_store
 
     @component.output_types(documents=list[Document], documents_written=int)
     def run(self, documents: list[Document]) -> dict[str, Any]:
-        """Store ``documents`` in Mimir and pass them through.
+        """Store ``documents`` in Perseus Vault and pass them through.
 
         :param documents: Documents to persist.
         :returns: ``{"documents": <same documents>, "documents_written": <count>}``.
@@ -56,42 +56,42 @@ class MimirMemoryWriter:
         return default_to_dict(self, memory_store=self._memory_store.to_dict())
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MimirMemoryWriter:
+    def from_dict(cls, data: dict[str, Any]) -> PerseusVaultMemoryWriter:
         """Deserialize a component from a dictionary."""
-        data["init_parameters"]["memory_store"] = MimirMemoryStore.from_dict(
+        data["init_parameters"]["memory_store"] = PerseusVaultMemoryStore.from_dict(
             data["init_parameters"]["memory_store"]
         )
         return default_from_dict(cls, data)
 
 
 @component
-class MimirMemoryRetriever:
-    """Haystack component that retrieves ``Document``s from a ``MimirMemoryStore``.
+class PerseusVaultMemoryRetriever:
+    """Haystack component that retrieves ``Document``s from a ``PerseusVaultMemoryStore``.
 
-    A thin pipeline adapter over :meth:`MimirMemoryStore.search_memories`. Takes a
-    ``query`` and returns the most relevant stored documents — drop it in front
-    of a prompt builder for retrieval-augmented generation over persistent
+    A thin pipeline adapter over :meth:`PerseusVaultMemoryStore.search_memories`.
+    Takes a ``query`` and returns the most relevant stored documents — drop it in
+    front of a prompt builder for retrieval-augmented generation over persistent
     memory.
 
     Usage::
 
-        from mimir_haystack import MimirMemoryStore, MimirMemoryRetriever
+        from perseus_vault_haystack import PerseusVaultMemoryStore, PerseusVaultMemoryRetriever
 
-        store = MimirMemoryStore(db_path="~/.mimir/haystack.db")
-        retriever = MimirMemoryRetriever(memory_store=store, top_k=5)
-        result = retriever.run(query="What is Mimir?")
+        store = PerseusVaultMemoryStore(db_path="~/.mimir/haystack.db")
+        retriever = PerseusVaultMemoryRetriever(memory_store=store, top_k=5)
+        result = retriever.run(query="What is Perseus Vault?")
         docs = result["documents"]
     """
 
-    def __init__(self, *, memory_store: MimirMemoryStore, top_k: int | None = None) -> None:
+    def __init__(self, *, memory_store: PerseusVaultMemoryStore, top_k: int | None = None) -> None:
         """Initialize the retriever.
 
-        :param memory_store: Backing :class:`MimirMemoryStore` to query.
+        :param memory_store: Backing :class:`PerseusVaultMemoryStore` to query.
         :param top_k: Default max results; falls back to the store's ``top_k``
             when ``None``.
         """
-        if not isinstance(memory_store, MimirMemoryStore):
-            msg = "memory_store must be an instance of MimirMemoryStore"
+        if not isinstance(memory_store, PerseusVaultMemoryStore):
+            msg = "memory_store must be an instance of PerseusVaultMemoryStore"
             raise ValueError(msg)
         self._memory_store = memory_store
         self._top_k = top_k
@@ -114,9 +114,9 @@ class MimirMemoryRetriever:
         return default_to_dict(self, memory_store=self._memory_store.to_dict(), top_k=self._top_k)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MimirMemoryRetriever:
+    def from_dict(cls, data: dict[str, Any]) -> PerseusVaultMemoryRetriever:
         """Deserialize a component from a dictionary."""
-        data["init_parameters"]["memory_store"] = MimirMemoryStore.from_dict(
+        data["init_parameters"]["memory_store"] = PerseusVaultMemoryStore.from_dict(
             data["init_parameters"]["memory_store"]
         )
         return default_from_dict(cls, data)

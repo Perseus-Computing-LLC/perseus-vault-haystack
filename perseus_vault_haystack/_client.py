@@ -2,16 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Low-level JSON-RPC (MCP stdio) client for the Mimir memory engine.
+"""Low-level JSON-RPC (MCP stdio) client for the Perseus Vault memory engine.
 
-Mimir (https://github.com/Perseus-Computing-LLC/mimir) is an open-source (MIT)
-local-first, encrypted persistent memory engine exposing 40+ MCP tools. It runs
-as ``mimir serve --db <path>`` and speaks JSON-RPC 2.0 over stdin/stdout (the MCP
-stdio transport).
+Perseus Vault (https://github.com/Perseus-Computing-LLC/perseus-vault) is an
+open-source (MIT) local-first, encrypted persistent memory engine exposing 40+
+MCP tools. It runs as ``perseus-vault serve --db <path>`` and speaks JSON-RPC 2.0
+over stdin/stdout (the MCP stdio transport).
 
-This client spawns the ``mimir`` binary and provides a thin, thread-safe
+This client spawns the ``perseus-vault`` binary and provides a thin, thread-safe
 ``call_tool`` method. It is adapted from the proven client core in
-``Perseus-Computing-LLC/adk-mimir-memory``.
+``Perseus-Computing-LLC/adk-perseus-vault-memory``.
 """
 
 from __future__ import annotations
@@ -26,29 +26,29 @@ import threading
 import time
 
 
-class MimirClient:
-    """Thread-safe JSON-RPC client over a ``mimir`` stdio subprocess.
+class PerseusVaultClient:
+    """Thread-safe JSON-RPC client over a ``perseus-vault`` stdio subprocess.
 
     The client lazily spawns the subprocess on first use (``start``), performs
     the MCP ``initialize`` handshake, and exposes ``call_tool`` to invoke any
-    Mimir MCP tool. The subprocess is terminated at interpreter exit.
+    Perseus Vault MCP tool. The subprocess is terminated at interpreter exit.
     """
 
     def __init__(
         self,
         db_path: str = "~/.mimir/haystack.db",
-        mimir_binary: str = "mimir",
+        perseus_vault_binary: str = "perseus-vault",
         timeout_s: float = 30.0,
     ) -> None:
         """Initialize the client (does not start the subprocess yet).
 
-        :param db_path: Path to the Mimir SQLite database file.
-        :param mimir_binary: Name (resolved on ``$PATH``) or absolute path of the
-            ``mimir`` executable.
+        :param db_path: Path to the Perseus Vault SQLite database file.
+        :param perseus_vault_binary: Name (resolved on ``$PATH``) or absolute path
+            of the ``perseus-vault`` executable.
         :param timeout_s: Per-RPC timeout guarding against a hung subprocess.
         """
         self.db_path = os.path.expanduser(db_path)
-        self.mimir_binary = mimir_binary
+        self.perseus_vault_binary = perseus_vault_binary
         self.timeout_s = timeout_s
 
         self._proc: subprocess.Popen | None = None
@@ -62,21 +62,26 @@ class MimirClient:
     # Lifecycle
     # ------------------------------------------------------------------ #
     def _resolve_binary(self) -> str:
-        if os.path.isabs(self.mimir_binary):
-            if not os.path.exists(self.mimir_binary):
-                msg = f"mimir binary not found at '{self.mimir_binary}'."
+        if os.path.isabs(self.perseus_vault_binary):
+            if not os.path.exists(self.perseus_vault_binary):
+                msg = f"perseus-vault binary not found at '{self.perseus_vault_binary}'."
                 raise RuntimeError(msg)
-            return self.mimir_binary
-        resolved = shutil.which(self.mimir_binary)
-        if resolved is None and os.name == "nt" and not self.mimir_binary.lower().endswith(".exe"):
+            return self.perseus_vault_binary
+        resolved = shutil.which(self.perseus_vault_binary)
+        if (
+            resolved is None
+            and os.name == "nt"
+            and not self.perseus_vault_binary.lower().endswith(".exe")
+        ):
             # On Windows the binary may be installed without the .exe suffix
             # (shutil.which only matches PATHEXT extensions by default).
-            resolved = shutil.which(self.mimir_binary + ".exe")
+            resolved = shutil.which(self.perseus_vault_binary + ".exe")
         if resolved is None:
             msg = (
-                f"mimir binary not found on $PATH (looked for '{self.mimir_binary}'). "
-                "Install Mimir from https://github.com/Perseus-Computing-LLC/mimir/releases "
-                "or pass an absolute path via mimir_binary=."
+                f"perseus-vault binary not found on $PATH (looked for "
+                f"'{self.perseus_vault_binary}'). Install Perseus Vault from "
+                "https://github.com/Perseus-Computing-LLC/perseus-vault/releases "
+                "or pass an absolute path via perseus_vault_binary=."
             )
             raise RuntimeError(msg)
         return resolved
@@ -125,13 +130,13 @@ class MimirClient:
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "mimir-haystack", "version": "0.1.0"},
+                "clientInfo": {"name": "perseus-vault-haystack", "version": "0.1.0"},
             },
         )
         self._notify("notifications/initialized", {})
 
     def close(self) -> None:
-        """Terminate the Mimir subprocess."""
+        """Terminate the Perseus Vault subprocess."""
         proc = self._proc
         if proc is None:
             return
@@ -155,7 +160,7 @@ class MimirClient:
         """Send a JSON-RPC request and return its ``result`` dict."""
         with self._lock:
             if self._proc is None or self._proc.stdin is None:
-                msg = "Mimir subprocess is not running. Call start() first."
+                msg = "Perseus Vault subprocess is not running. Call start() first."
                 raise RuntimeError(msg)
             req_id = self._next_id()
             req = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
@@ -165,8 +170,8 @@ class MimirClient:
                 self._proc.stdin.flush()
             except (BrokenPipeError, OSError) as e:
                 msg = (
-                    f"Mimir subprocess communication failed: {e}. "
-                    "The mimir process may have crashed."
+                    f"Perseus Vault subprocess communication failed: {e}. "
+                    "The perseus-vault process may have crashed."
                 )
                 raise RuntimeError(msg) from e
 
@@ -174,15 +179,15 @@ class MimirClient:
             while True:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    msg = f"Mimir RPC '{method}' timed out after {self.timeout_s}s."
+                    msg = f"Perseus Vault RPC '{method}' timed out after {self.timeout_s}s."
                     raise RuntimeError(msg)
                 try:
                     raw = self._recv.get(timeout=remaining)
                 except queue.Empty:
-                    msg = f"Mimir RPC '{method}' timed out after {self.timeout_s}s."
+                    msg = f"Perseus Vault RPC '{method}' timed out after {self.timeout_s}s."
                     raise RuntimeError(msg) from None
                 if raw is None:
-                    msg = "Mimir subprocess closed its output (it may have crashed)."
+                    msg = "Perseus Vault subprocess closed its output (it may have crashed)."
                     raise RuntimeError(msg)
                 raw = raw.strip()
                 if not raw:
@@ -195,7 +200,7 @@ class MimirClient:
                     continue  # notification or a stale/other reply
                 if "error" in resp:
                     err = resp["error"]
-                    msg = f"Mimir RPC error [{err.get('code')}]: {err.get('message')}"
+                    msg = f"Perseus Vault RPC error [{err.get('code')}]: {err.get('message')}"
                     raise RuntimeError(msg)
                 return resp.get("result", {})
 
@@ -212,7 +217,7 @@ class MimirClient:
                 pass
 
     def call_tool(self, name: str, arguments: dict) -> dict:
-        """Call a Mimir MCP tool and return its ``structuredContent``.
+        """Call a Perseus Vault MCP tool and return its ``structuredContent``.
 
         Falls back to parsing the first text content block if no structured
         content is present.
