@@ -44,7 +44,7 @@ from perseus_vault_haystack import (
 )
 
 # One store, shared by both components (single perseus-vault subprocess).
-store = PerseusVaultMemoryStore(db_path="~/.mimir/haystack.db", category="docs")
+store = PerseusVaultMemoryStore(db_path="~/.perseus-vault/haystack.db", category="docs")
 
 # --- Write documents into persistent memory ---
 write_pipe = Pipeline()
@@ -77,7 +77,7 @@ Because Perseus Vault persists to an encrypted SQLite file, documents written in
 from haystack import Document
 from perseus_vault_haystack import PerseusVaultMemoryStore
 
-store = PerseusVaultMemoryStore(db_path="~/.mimir/haystack.db")
+store = PerseusVaultMemoryStore(db_path="~/.perseus-vault/haystack.db")
 store.add_memories([Document(content="Remember this fact.")])
 hits = store.search_memories("fact", top_k=5)
 ```
@@ -86,7 +86,7 @@ hits = store.search_memories("fact", top_k=5)
 
 `PerseusVaultMemoryStore` accepts:
 
-- `db_path` — path to the Perseus Vault SQLite database (default `~/.mimir/haystack.db`).
+- `db_path` — path to the Perseus Vault SQLite database (default `~/.perseus-vault/haystack.db`).
 - `perseus_vault_binary` — name on `$PATH` or absolute path to the executable (default `perseus-vault`).
 - `category` — Perseus Vault category scoping all writes/recalls for this store (default `haystack-memory`). Use distinct categories to isolate corpora.
 - `top_k` — default number of documents returned by retrieval (default `10`).
