@@ -7,9 +7,9 @@ authors:
       socials:
         github: Perseus-Computing-LLC
 pypi: https://pypi.org/project/perseus-vault-haystack/
-repo: https://github.com/Perseus-Computing-LLC/mimir-haystack
+repo: https://github.com/Perseus-Computing-LLC/perseus-vault-haystack
 type: Memory Store
-report_issue: https://github.com/Perseus-Computing-LLC/mimir-haystack/issues
+report_issue: https://github.com/Perseus-Computing-LLC/perseus-vault-haystack/issues
 logo: /logos/perseus-vault.png
 version: Haystack 2.0
 toc: true
