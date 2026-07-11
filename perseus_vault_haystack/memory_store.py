@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 from haystack import default_from_dict, default_to_dict
-from haystack.dataclasses import Document
+from haystack.dataclasses import ChatMessage, Document
 
 from ._client import PerseusVaultClient
 
@@ -167,6 +167,56 @@ class PerseusVaultMemoryStore:
         """Delete every entity in this store's category via ``perseus_vault_forget``."""
         self._client.call_tool("perseus_vault_forget", {"category": self.category})
         logger.info("Deleted all documents in Perseus Vault category '%s'", self.category)
+
+    # ------------------------------------------------------------------ #
+    # ChatMessage helpers (agent / conversational memory)
+    # ------------------------------------------------------------------ #
+    def write_messages(self, messages: list[ChatMessage]) -> int:
+        """Persist chat ``messages`` as durable memories.
+
+        Each message's text becomes one Perseus Vault entity, tagged with its
+        role so it can be rehydrated as a :class:`~haystack.dataclasses.ChatMessage`
+        on recall. Messages with empty text are skipped. This is the conversational
+        counterpart to :meth:`add_memories` and is what the agent tools and the
+        auto-memory wrapper use to store turns.
+
+        :param messages: Chat messages to store.
+        :returns: The number of messages actually written.
+        """
+        written = 0
+        for msg in messages:
+            text = (msg.text or "").strip()
+            if not text:
+                continue
+            role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            key = f"msg:{int(time.time() * 1_000_000)}:{written}"
+            self._client.call_tool(
+                "perseus_vault_remember",
+                {
+                    "category": self.category,
+                    "key": key,
+                    "body_json": json.dumps({"content": text, "role": role, "kind": "chat_message"}),
+                    "tags": ["haystack", "chat", role],
+                },
+            )
+            written += 1
+        logger.info("Stored %d chat messages in Perseus Vault category '%s'", written, self.category)
+        return written
+
+    def recall_messages(self, query: str, top_k: int | None = None) -> list[ChatMessage]:
+        """Recall relevant memories and return them as system ``ChatMessage`` objects.
+
+        Mirrors the convention used by the other Haystack memory integrations
+        (mem0, cognee): retrieved memories come back as ``system`` messages ready
+        to prepend to a conversation so the agent has its long-term context.
+
+        :param query: Natural-language / keyword query. Empty queries return ``[]``.
+        :param top_k: Per-call override of the store's default ``top_k``.
+        :returns: One ``system`` :class:`~haystack.dataclasses.ChatMessage` per hit,
+            ordered by relevance.
+        """
+        docs = self.search_memories(query=query, top_k=top_k)
+        return [ChatMessage.from_system(doc.content) for doc in docs if doc.content]
 
     # ------------------------------------------------------------------ #
     # Serialization

@@ -48,10 +48,14 @@ class FakePerseusVaultClient:
         if name == "perseus_vault_recall":
             query = arguments.get("query", "").lower()
             limit = arguments.get("limit", 10)
+            # Mirror Perseus Vault FTS5 semantics: query words are OR'd against
+            # the stored content (not a naive full-string substring match).
+            terms = [t.strip("?.!,") for t in query.split() if len(t.strip("?.!,")) > 2]
             items = []
             for key, body_json in self.store.items():
                 body = json.loads(body_json)
-                if query in body.get("content", "").lower():
+                content = body.get("content", "").lower()
+                if any(term in content for term in terms):
                     items.append({"key": key, "body_json": body_json, "score": 0.9})
             return {"items": items[:limit]}
         if name == "perseus_vault_forget":
@@ -282,3 +286,119 @@ def test_real_roundtrip(tmp_path):
     hits = s.search_memories("persistent memory", top_k=5)
     assert any(h.content == "Perseus Vault provides persistent memory." for h in hits)
     s._client.close()
+
+
+# --------------------------------------------------------------------------- #
+# ChatMessage API
+# --------------------------------------------------------------------------- #
+def test_write_and_recall_messages(store):
+    from haystack.dataclasses import ChatMessage
+
+    written = store.write_messages(
+        [
+            ChatMessage.from_user("Alice prefers concise answers."),
+            ChatMessage.from_assistant("Understood."),
+        ]
+    )
+    assert written == 2
+    msgs = store.recall_messages("concise", top_k=5)
+    assert msgs and all(m.role.value == "system" for m in msgs)
+    assert any("concise" in m.text for m in msgs)
+
+
+def test_write_messages_skips_empty(store):
+    from haystack.dataclasses import ChatMessage
+
+    assert store.write_messages([ChatMessage.from_user("   ")]) == 0
+
+
+# --------------------------------------------------------------------------- #
+# Agent tools
+# --------------------------------------------------------------------------- #
+def test_create_tools_default_set(store):
+    from perseus_vault_haystack import create_perseus_vault_tools
+
+    tools = create_perseus_vault_tools(store)
+    assert [t.name for t in tools] == ["retain_memory", "recall_memory", "reflect_memory"]
+
+
+def test_tools_selective_inclusion(store):
+    from perseus_vault_haystack import create_perseus_vault_tools
+
+    tools = create_perseus_vault_tools(store, include_reflect=False, include_recall=False)
+    assert [t.name for t in tools] == ["retain_memory"]
+
+
+def test_retain_and_recall_tools_roundtrip(store):
+    from perseus_vault_haystack import create_perseus_vault_tools
+
+    retain, recall, reflect = create_perseus_vault_tools(store)
+    assert retain.invoke(text="The vault is encrypted with AES-256-GCM.") == "Stored 1 memory."
+    assert "AES-256-GCM" in recall.invoke(query="encrypted")
+    assert "encrypted" in reflect.invoke(query="encrypted")
+
+
+def test_recall_tool_no_hits(store):
+    from perseus_vault_haystack import create_perseus_vault_tools
+
+    _, recall, _ = create_perseus_vault_tools(store)
+    assert recall.invoke(query="nonexistent-topic") == "No relevant memories found."
+
+
+def test_tools_reject_bad_store():
+    from perseus_vault_haystack import create_perseus_vault_tools
+
+    with pytest.raises(ValueError):
+        create_perseus_vault_tools(object())  # type: ignore[arg-type]
+
+
+# --------------------------------------------------------------------------- #
+# Auto-memory wrapper
+# --------------------------------------------------------------------------- #
+def test_wrapper_recall_injects_and_retain_stores(store):
+    from haystack.dataclasses import ChatMessage
+
+    from perseus_vault_haystack import PerseusVaultMemoryWrapper
+
+    store.write_messages([ChatMessage.from_user("Bob works in US/Central timezone.")])
+
+    seen = {}
+
+    class FakeAgent:
+        def run(self, messages, **kw):
+            seen["system_count"] = sum(1 for m in messages if m.role.value == "system")
+            return {"last_message": ChatMessage.from_assistant("Bob is in Central time.")}
+
+    wrapper = PerseusVaultMemoryWrapper(store, auto_recall=True, auto_retain=True)
+    res = wrapper.run(FakeAgent(), messages=[ChatMessage.from_user("What timezone is Bob in?")])
+
+    assert seen["system_count"] >= 1  # a memory was injected
+    assert res["last_message"].text == "Bob is in Central time."
+    # assistant reply was retained
+    assert any("Central time" in m.text for m in store.recall_messages("Central time", top_k=10))
+
+
+def test_wrapper_recall_disabled(store):
+    from haystack.dataclasses import ChatMessage
+
+    from perseus_vault_haystack import PerseusVaultMemoryWrapper
+
+    store.write_messages([ChatMessage.from_user("Some stored fact about widgets.")])
+
+    class FakeAgent:
+        def run(self, messages, **kw):
+            return {
+                "system_count": sum(1 for m in messages if m.role.value == "system"),
+                "last_message": ChatMessage.from_assistant("ok"),
+            }
+
+    wrapper = PerseusVaultMemoryWrapper(store, auto_recall=False, auto_retain=False)
+    res = wrapper.run(FakeAgent(), messages=[ChatMessage.from_user("widgets?")])
+    assert res["system_count"] == 0
+
+
+def test_wrapper_rejects_bad_store():
+    from perseus_vault_haystack import PerseusVaultMemoryWrapper
+
+    with pytest.raises(ValueError):
+        PerseusVaultMemoryWrapper(object())  # type: ignore[arg-type]

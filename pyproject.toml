@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "perseus-vault-haystack"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first, encrypted persistent memory for Haystack 2.x pipelines — backed by Perseus Vault."
 readme = "README.md"
 license = { text = "MIT" }

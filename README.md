@@ -2,15 +2,19 @@
 
 Local-first, encrypted **persistent memory for [Haystack](https://haystack.deepset.ai/) 2.x pipelines**, backed by [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) (formerly "Mimir"/"Mneme").
 
-Perseus Vault is an open-source (MIT) memory engine that runs entirely on your machine, stores data in an encrypted SQLite database, and exposes 40+ tools over the Model Context Protocol (MCP). This package wraps Perseus Vault's `remember` / `recall` / `forget` tools as Haystack components so your pipelines can persist and retrieve documents across runs — no external vector database or API key required.
+Perseus Vault is an open-source (MIT) memory engine that runs entirely on your machine, stores data in an encrypted SQLite database, and exposes 40+ tools over the Model Context Protocol (MCP). This package wraps Perseus Vault as Haystack pipeline components **and** ready-made Agent tools, so your pipelines and agents can persist and retrieve memory across runs — no external vector database, no cloud, and no API key required.
 
-## Components
+> **Why Perseus Vault vs. other Haystack memory stores?** It is the only one that runs **fully local and offline**, stores everything **encrypted at rest (AES-256-GCM)**, needs **no API key or signup**, and ships as a **single binary with no external vector database**. Your data never leaves the machine.
 
-| Class | Type | Role |
+## What's included
+
+| Class / function | Type | Role |
 | --- | --- | --- |
-| `PerseusVaultMemoryStore` | Memory store | Owns the `perseus-vault` subprocess and config; holds `add_memories` / `search_memories` / `delete_all_memories`. |
+| `PerseusVaultMemoryStore` | Memory store | Owns the `perseus-vault` subprocess and config. `add_memories` / `search_memories` / `delete_all_memories` for `Document`s, plus `write_messages` / `recall_messages` for `ChatMessage`s. |
 | `PerseusVaultMemoryWriter` | `@component` | Pipeline sink that persists `Document`s into the store. |
 | `PerseusVaultMemoryRetriever` | `@component` | Pipeline source that retrieves the most relevant `Document`s for a query. |
+| `create_perseus_vault_tools(...)` | Agent tools | Returns `retain_memory` / `recall_memory` / `reflect_memory` `Tool`s so an `Agent` decides when to store and retrieve memory. |
+| `PerseusVaultMemoryWrapper` | Agent wrapper | Automatic recall-before / retain-after memory for an agent, no tool-calling required. |
 
 ## Prerequisite: the `perseus-vault` binary
 
@@ -81,6 +85,61 @@ store = PerseusVaultMemoryStore(db_path="~/.perseus-vault/haystack.db")
 store.add_memories([Document(content="Remember this fact.")])
 hits = store.search_memories("fact", top_k=5)
 ```
+
+## Agents
+
+### Give an Agent memory tools
+
+Let the agent decide when to store and retrieve memory with ready-made `Tool`s:
+
+```python
+from haystack.components.agents import Agent
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage
+from perseus_vault_haystack import PerseusVaultMemoryStore, create_perseus_vault_tools
+
+store = PerseusVaultMemoryStore(db_path="~/.perseus-vault/agent.db", category="agent-memory")
+tools = create_perseus_vault_tools(store)  # retain_memory, recall_memory, reflect_memory
+
+agent = Agent(
+    chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
+    tools=tools,
+    system_prompt=(
+        "You are a helpful assistant with long-term memory. "
+        "Use recall_memory before answering, and retain_memory to store durable facts."
+    ),
+)
+
+agent.run(messages=[ChatMessage.from_user("Remember that I prefer concise answers.")])
+```
+
+You can include or exclude any tool, e.g. `create_perseus_vault_tools(store, include_reflect=False)`.
+
+### Automatic memory (no tool-calling)
+
+`PerseusVaultMemoryWrapper` injects relevant memories before each turn and stores the
+exchange after — without relying on the model to call tools:
+
+```python
+from haystack.components.agents import Agent
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage
+from perseus_vault_haystack import PerseusVaultMemoryStore, PerseusVaultMemoryWrapper
+
+store = PerseusVaultMemoryStore(db_path="~/.perseus-vault/agent.db")
+memory = PerseusVaultMemoryWrapper(store, auto_recall=True, auto_retain=True)
+
+agent = Agent(
+    chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
+    system_prompt="You are a helpful assistant with long-term memory.",
+)
+
+result = memory.run(agent, messages=[ChatMessage.from_user("I prefer dark mode.")])
+print(result["last_message"].text)
+```
+
+`ChatMessage` memory is also available directly on the store via
+`store.write_messages([...])` and `store.recall_messages(query)`.
 
 ## Configuration
 

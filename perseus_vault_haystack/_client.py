@@ -130,7 +130,7 @@ class PerseusVaultClient:
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "perseus-vault-haystack", "version": "0.1.0"},
+                "clientInfo": {"name": "perseus-vault-haystack", "version": "0.2.0"},
             },
         )
         self._notify("notifications/initialized", {})
